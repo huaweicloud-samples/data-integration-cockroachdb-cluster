@@ -1,0 +1,63 @@
+apiVersion: crdb.cockroachlabs.com/v1alpha1
+kind: CrdbCluster
+metadata:
+  # this translates to the name of the statefulset that is created
+  name: cockroachdb
+spec:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: node
+            operator: In
+            values:
+            - cockroachdb
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: app.kubernetes.io/instance
+            operator: In
+            values:
+            - cockroachdb
+        topologyKey: kubernetes.io/hostname
+  maxSQLMemory: ${max_sql_memory}
+  dataStore:
+    pvc:
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: ${persistent_volume_size}
+        volumeMode: Filesystem
+        storageClassName: ${storageClassName}
+  resources:
+    requests:
+      cpu: ${cpu_requests}
+      memory: ${memory_request}
+    limits:
+      cpu: ${cpu_limit}
+      memory: ${memory_limit}
+  tlsEnabled: false
+# You can set either a version of the db or a specific image name
+# cockroachDBVersion: v22.2.2
+  image:
+    name: cockroachdb/cockroach:v22.2.2
+  # nodes refers to the number of crdb pods that are created
+  # via the statefulset
+  nodes: ${number_of_nodes}
+  additionalArgs:
+  # CockroachDB locality hints improve replica placement across AZs.
+  # On CCE the node Availability Zone is read from the Huawei Cloud
+  # metadata service (OpenStack style, reachable from pods at the
+  # link-local address below). Set enable_locality=false if the pod
+  # cannot reach 169.254.169.254 or the metadata service is disabled;
+  # CockroachDB still runs fine without locality hints.
+%{if enable_locality}
+  - '--locality=region=${region},zone=$(curl -s --max-time 10 http://169.254.169.254/latest/meta-data/placement/availability-zone)'
+%{endif}
+  - --max-disk-temp-storage=${max_disk_temp_storage}
+  additionalLabels:
+    crdb: is-cool

@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cockroach-elb
+  annotations:
+    # CCE automatically provisions a Huawei Cloud ELB (Elastic Load Balance)
+    # for this Service. "performance" = dedicated (独享型) load balancer.
+    # Use "union" for a shared (共享型) load balancer if preferred.
+    kubernetes.io/elb.class: performance
+    # Auto-create a PUBLIC ELB with an EIP bound for internet access.
+    # For a private load balancer instead, change "type" to "inner" and remove
+    # the bandwidth_* / eip_type fields.
+    kubernetes.io/elb.autocreate: '{"type":"public","bandwidth_name":"crdb-elb-bandwidth","bandwidth_chargemode":"bandwidth","bandwidth_size":5,"bandwidth_sharetype":"PER","eip_type":"5_bgp","name":"crdb-elb","l4_flavor_name":"L4_flavor.elb.s1.small","available_zone":["${availability_zone}"]}'
+    # ELB resource tags
+    kubernetes.io/elb.tags: "${additional_tags}"
+spec:
+  ports:
+  - name: http
+    port: 8080
+    protocol: TCP
+    targetPort: 8080
+  - name: sql
+    port: 26257
+    protocol: TCP
+    targetPort: 26257
+  selector:
+    app.kubernetes.io/component: database
+    app.kubernetes.io/instance: ${crdb_cluster}
+    app.kubernetes.io/name: cockroachdb
+  type: LoadBalancer
