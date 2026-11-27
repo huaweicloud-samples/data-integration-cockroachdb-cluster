@@ -1,0 +1,98 @@
+# Copyright 2022 The Cockroach Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# Generated, do not edit. Please edit this file instead: config/templates/client-secure-operator.yaml.in
+#
+
+apiVersion: v1
+kind: Pod
+metadata:
+  name: cockroachdb-client-secure
+  annotations:
+    reloader.stakater.com/search: "true"
+    seccomp.security.alpha.kubernetes.io/pod: "runtime/default"
+spec:
+  serviceAccountName: ${serviceaccount}
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 10001
+    seccompProfile:
+      type: RuntimeDefault
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+        - NET_RAW
+        - ALL
+  containers:
+  - name: cockroachdb-client-secure
+    image: cockroachdb/cockroach@sha256:04a55dfae8e10e9b2c517fd6fd7aa76574895f76b4e2098f287b542de6db3766
+    securityContext:
+      # runAsUser: 10001
+      seccompProfile:
+        type: RuntimeDefault
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - NET_RAW
+          - ALL
+    # ports:
+    # - name: liveness-port
+    #   containerPort: 8080
+    #   hostPort: 8080
+    # livenessProbe :
+    #   httpGet:
+    #     path: /health
+    #     port: liveness-port
+    #   initialDelaySeconds: 2
+    # readinessProbe:
+    #     exec:
+    #       command:
+    #       - echo 'test'
+    #     initialDelaySeconds: 2
+    #     periodSeconds: 2
+    resources:
+      requests:
+        memory: "64Mi"
+        cpu: "250m"
+      limits:
+        memory: "128Mi"
+        cpu: 500m        
+    imagePullPolicy: Always
+    volumeMounts:
+    - name: client-certs
+      mountPath: /cockroach/cockroach-certs/
+    command:
+    # - kube-apiserver
+    #   - --enable-admission-plugins=AlwaysPullImages
+    - sleep
+    - "2147483648" # 2^31
+  terminationGracePeriodSeconds: 0
+  volumes:
+  - name: client-certs
+    projected:
+        sources:
+          - secret:
+              name: cockroachdb-node
+              items:
+                - key: ca.crt
+                  path: ca.crt
+          - secret:
+              name: cockroachdb-root
+              items:
+                - key: tls.crt
+                  path: client.root.crt
+                - key: tls.key
+                  path: client.root.key
+        defaultMode: 256 
